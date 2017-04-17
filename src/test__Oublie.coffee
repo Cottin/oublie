@@ -13,7 +13,7 @@ waitFor = (ms, done, f) ->
 		done()
 	, ms
 
-Cache = require './cache'
+Oublie = require './oublie'
 utils = require './utils'
 
 o1 = {id: 1, a: 'a1'}
@@ -28,7 +28,7 @@ o4_ = {id: 4, a: 'a4_'}
 
 class App
 	constructor: ->
-		@cache = new Cache
+		@cache = new Oublie
 			pub: @pub
 			remote: @remote
 			data:
@@ -70,7 +70,7 @@ class App
 	getData: -> @cache._dev_getData()
 
 
-describe 'cache', ->
+describe 'Oublie', ->
 	describe 'sub', ->
 		# it 'duplicate', ->
 		# 	throws /subscription already exists/, ->

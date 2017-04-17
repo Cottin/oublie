@@ -1,8 +1,8 @@
 {
   "name": "oublie",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Frontend cache with declarative data queries",
-  "main": "lib/oublie.js",
+  "main": "lib/index.js",
   "scripts": {
     "test": "mocha 'src/**/test*.coffee' --watch --compilers coffee:coffee-script/register",
     "clean": "rimraf lib",

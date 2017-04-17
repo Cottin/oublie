@@ -21,7 +21,7 @@ module.exports = {
   resolve: {
     extensions: ['', '.js', '.coffee'],
     alias: {
-      'oublie': path.join(__dirname, '../../src/oublie')
+      'oublie': path.join(__dirname, '../../src')
     }
   },
   module: {

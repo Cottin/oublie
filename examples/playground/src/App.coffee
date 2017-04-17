@@ -6,7 +6,7 @@ Square = React.createFactory require('./Square')
 {F, always, clone, gt, has, lt, lte, match, max, merge, none, replace, sort, test, values, where} = require 'ramda' #auto_require:ramda
 {change} = require 'ramda-extras'
 data = require './data'
-{Cache, utils} = require 'oublie'
+Oublie = require 'oublie'
 {toRamda} = require 'popsiql'
 
 
@@ -23,16 +23,15 @@ App = React.createClass
 
 	componentWillMount: ->
 		document.body.style.backgroundColor = "#F7F7F7"
-		@cache = new Cache
+		@cache = new Oublie
 			pub: (key, delta) =>
 				console.log 'pub', {key, delta}
 				newResult = change clone(delta), @state.result
 				@setState {result: newResult}
 			remote: (key, query) =>
 				console.log 'remote', {key, query}
-				readQuery = utils.toReadQuery query
 				return new Promise (res) =>
-					respond = => res toRamda(readQuery)(@state.data)
+					respond = => res toRamda(query)(@state.data)
 					setTimeout respond, @state.delay * 1000
 		@cache._dev_dataChanged = (data) =>
 			@setState {cache: data}
