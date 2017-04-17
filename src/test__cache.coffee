@@ -63,10 +63,9 @@ class App
 
 	remote: (key, query) =>
 		@log.push {remote: {key, query}}
-		readQuery = utils.toReadQuery query
 		serverData = {o: {1: o1_, 2: o2_, 3: o3_, 4: o4_}}
 		return new Promise (res) =>
-			res toRamda(readQuery)(serverData)
+			res toRamda(query)(serverData)
 
 	getData: -> @cache._dev_getData()
 

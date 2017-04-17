@@ -1,6 +1,6 @@
 {
   "name": "oublie",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Frontend cache with declarative data queries",
   "main": "lib/oublie.js",
   "scripts": {
@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/Cottin/oublie#readme",
   "dependencies": {
-    "popsiql": "^0.1.7",
+    "popsiql": "^0.1.15",
     "ramda": "^0.22.1",
     "ramda-extras": "^0.2.11"
   },

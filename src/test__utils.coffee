@@ -351,15 +351,15 @@ describe 'utils', ->
 					eq null, l
 					deepEq {many: 'o', id: [1, 3]}, r
 
-	describe 'toReadQuery', ->
-		describe 'one', ->
-			it 'one id', ->
-				res = utils.toReadQuery {one: 'o', id: 2}
-				deepEq {get: 'o', where: {id: 2}}, res
+	# describe 'toReadQuery', ->
+	# 	describe 'one', ->
+	# 		it 'one id', ->
+	# 			res = utils.toReadQuery {one: 'o', id: 2}
+	# 			deepEq {get: 'o', where: {id: 2}}, res
 
-			it 'many ids', ->
-				res = utils.toReadQuery {one: 'o', id: [1, 2]}
-				deepEq {get: 'o', where: {id: {in: [1, 2]}}}
+	# 		it 'many ids', ->
+	# 			res = utils.toReadQuery {one: 'o', id: [1, 2]}
+	# 			deepEq {get: 'o', where: {id: {in: [1, 2]}}}
 
 			
 	# describe 'new', ->

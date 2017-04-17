@@ -4,15 +4,15 @@
 
 _getEntity = (query) -> query.one || query.many || query.all
 
-toReadQuery = (query) ->
-	q_ = omit ['one', 'many', 'all', 'id'], query
-	q__ = assoc 'get', _getEntity(query), q_
-	if ! has('id', query) then return q__
+# toReadQuery = (query) ->
+# 	q_ = omit ['one', 'many', 'all', 'id'], query
+# 	q__ = assoc 'get', _getEntity(query), q_
+# 	if ! has('id', query) then return q__
 
-	if type(query.id) == 'Array'
-		return merge q__, {where: {id: {in: query.id}}}
-	else
-		return merge q__, {where: {id: query.id}}
+# 	if type(query.id) == 'Array'
+# 		return merge q__, {where: {id: {in: query.id}}}
+# 	else
+# 		return merge q__, {where: {id: query.id}}
 
 _read = (cache, query) ->
 	# pagination make things more complex, and if you want to support start
@@ -21,7 +21,8 @@ _read = (cache, query) ->
 	# IDEA: maybe we should remove start! ...and instead you just declare max
 	# and cache figures out how to optimize the query by adding start. For later..
 	if has 'start', query then query = dissoc 'start', query 
-	return toRamda(toReadQuery(query))(cache.objects)
+
+	return toRamda(query)(cache.objects)
 
 _isCached = (cache, query) ->
 	if query.id
@@ -85,4 +86,4 @@ query = (cache, query, strategy, expiry) ->
 
 
 #auto_export:none_
-module.exports = {toReadQuery, query}
+module.exports = {query}
