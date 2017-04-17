@@ -1,7 +1,9 @@
 {add, always, append, assoc, clone, evolve, has, isNil, keys, map, mapObjIndexed, merge, omit, reject, type} = require 'ramda' #auto_require:ramda
-{change, yfilter} = require 'ramda-extras'
+{change, yfilter, isThenable} = require 'ramda-extras'
 
 utils = require './utils'
+
+ERR = 'Oublie Error: '
 
 _toMap = (k, xs) ->
 	o = {}
@@ -54,8 +56,11 @@ class Oublie
 		@config.pub key, {sync, val}
 
 		if !isNil(r)
-			@config.remote(key, r)
-				.then (val) =>
+			res = @config.remote(key, r)
+			if !isThenable res
+				throw new Error ERR + 'remote function needs to return a promise'
+
+			res.then (val) =>
 					@config.pub key, {val: {$assoc: val}, sync: 'rd'}
 
 					if isNil(val) then return
