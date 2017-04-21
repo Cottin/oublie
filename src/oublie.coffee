@@ -65,26 +65,18 @@ class Oublie
 
 					if isNil(val) then return
 
-					console.log 1
-					console.log {val}
 					val_ = if type(val) == 'Array' then _toMap 'id', val else val
 					now = Date.now()
-					console.log 2
 					val_ = if type(val) == 'Array' then _toMap 'id', val else val
 					expires = Date.now() + expiry * 1000
-					console.log 3
 					r_ = {expires, query: r}
 					# TODO: don't add to queries if it's an id query!
 					newArrayOrAppend = (x) -> if isNil(x) then [r_] else append r_, x
-					console.log 4
-					console.log {val_}
 					spec =
 						objects: {"#{entity}": {$merge: val_}}
 						queries: {"#{entity}": newArrayOrAppend}
 						ids: {"#{entity}": {$merge: map(always(expires), val_)}}
-					console.log 5
 					@data = change spec, @data
-					console.log 6
 					@_dev_dataChanged?(@data)
 
 				.catch (err) =>
