@@ -1,5 +1,5 @@
 assert = require 'assert'
-{add, call, flip, gt, gte, last, lt, lte, match, max, sort, values, where} = require 'ramda' #auto_require:ramda
+{add, call, flip, gt, gte, last, lt, lte, match, max, merge, sort, update, values, where} = require 'ramda' #auto_require:ramda
 
 eq = flip assert.strictEqual
 deepEq = flip assert.deepEqual
@@ -29,9 +29,18 @@ describe 'utils', ->
 			o:
 				2: Date.now() + 90
 				4: Date.now() + 90
+		diff:
+			o:
+				2:
+					id: 2
+					a: 'a2$'
+		subs:
+			$o: {query: {edit: 'o', id: 2}, strategy: 'LO', sync: null}
+
 
 
 	q_ = (query, strategy, expiry) -> utils.query mock, query, strategy, expiry
+	e_ = (query, strategy) -> utils.exec mock, query, strategy
 
 	##############################################################################
 	##############################################################################
@@ -350,6 +359,47 @@ describe 'utils', ->
 					[l, r] = q_ {many: 'o', id: [1, 3]}, 'VO', 8
 					eq null, l
 					deepEq {many: 'o', id: [1, 3]}, r
+
+	describe 'commit', ->
+		# it 'LO', ->
+		# 	[l, r] = e_ {commit: '$o'}, 'LO'
+		# 	deepEq {o: {$merge: {id: 2, a: 'a2$'}}}, l
+		# 	eq null, r
+
+		# it 'PE', ->
+		# 	[l, r] = e_ {commit: '$o'}, 'PE'
+		# 	eq null, l
+		# 	deepEq {update: 'o', id: 2, data: {id: 2, a: 'a2$'}}, r
+
+		it 'LO, PE, OP', ->
+			[l, r] = e_ {commit: '$o'}, 'LO'
+			deepEq {o: {$merge: {id: 2, a: 'a2$'}}}, l
+			deepEq {update: 'o', id: 2, data: {id: 2, a: 'a2$'}}, r
+
+			[l, r] = e_ {commit: '$o'}, 'PE'
+			deepEq {o: {$merge: {id: 2, a: 'a2$'}}}, l
+			deepEq {update: 'o', id: 2, data: {id: 2, a: 'a2$'}}, r
+
+			[l, r] = e_ {commit: '$o'}, 'OP'
+			deepEq {o: {$merge: {id: 2, a: 'a2$'}}}, l
+			deepEq {update: 'o', id: 2, data: {id: 2, a: 'a2$'}}, r
+
+	# ##############################################################################
+	# ##############################################################################
+	# describe 'merge', ->
+	# 	it 'LO', ->
+	# 		[l, r] = q_ {merge: 'o', data: {a: 'a1', b: 2}}, 'LO'
+	# 		eq null, l
+	# 		eq null, r
+
+	# ##############################################################################
+	# ##############################################################################
+	# describe 'modify', ->
+	# 	it 'simple', ->
+	# 		[l, r] = q_ {modify: 'o', id: 2, delta: {a: 'a2$'}}
+	# 		eq null, l
+	# 		eq null, r
+
 
 	# describe 'toReadQuery', ->
 	# 	describe 'one', ->

@@ -20,6 +20,11 @@ class Oublie
 	sub: (key, query, strategy, expiry) ->
 		# if has key, @subs
 		# 	throw new Error 'subscription already exists for key' + key
+		if isNil(key) || type(key) != 'String'
+			throw new Error "key must be a string for subscription, given: #{key}"
+
+		if isNil(query) || type(query) != 'Object'
+			throw new Error "query must be an object for subscription, given: #{query}"
 
 		@subs[key] = query
 
@@ -82,6 +87,60 @@ class Oublie
 				.catch (err) =>
 					console.error err
 					throw new Error 'Not yet implemented'
+
+	do: (query, strategy) ->
+		@removeExpiredItems()
+
+		if has('modify', query) || has('commit', query)
+			key = query.modify || query.commit
+			sub = @subs[key]
+			if isNil sub
+				console.error 'error for query:', query
+				throw new Error "no 'edit' or 'new' subscription with key '#{key}'"
+
+			if isNil sub.id
+				console.error 'error for query:', query
+				throw new Error "id in query at '#{key}' is nil"
+
+			entity = sub.edit || sub.new
+			if isNil entity
+				console.error 'error for query:', query
+				throw new Error "query at #{key} does not seem to be a edit or new query"
+
+			if has 'modify', query
+				@config.pub key, {val: query.delta}
+				spec =
+					diff: {"#{entity}": {"#{sub.id}": query.delta}}
+				@data = change spec, @data
+				@_dev_dataChanged?(@data)
+				return
+
+			else if has 'commit', query
+				if isNil strategy
+					console.log 'error for query:', query
+					throw new Error 'commit query missing strategy'
+
+				[l, r] = utils.exec query, strategy
+
+				if strategy == 'LO' || strategy == 'OP'
+					@data = change {objects: l}, @data
+					@_dev_dataChanged?(@data)
+
+
+				if strategy == 'PE' || strategy == 'OP'
+					res = @config.remote(key, r)
+					if !isThenable res
+						throw new Error ERR + 'remote function needs to return a promise'
+
+					res.then (val) =>
+
+						# spec =
+						# 	objects: {"#{entity}": {$merge: val_}}
+						# 	queries: {"#{entity}": newArrayOrAppend}
+						# 	ids: {"#{entity}": {$merge: map(always(expires), val_)}}
+
+						@data = change {objects: l}, @data
+						@_dev_dataChanged?(@data)
 
 	removeExpiredItems: () ->
 		now = Date.now()

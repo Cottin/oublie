@@ -25,6 +25,8 @@ module.exports = {
     }
   },
   module: {
+    // https://github.com/storybooks/storybook/issues/745
+    noParse: /object-hash\/dist\/object_hash.js/,
     loaders: [
     {
       test: /\.coffee?$/,

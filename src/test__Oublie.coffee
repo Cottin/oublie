@@ -1,5 +1,5 @@
 assert = require 'assert'
-{assoc, clone, empty, flip, gt, lte, test, values, where} = require 'ramda' #auto_require:ramda
+{assoc, clone, drop, empty, flip, gt, has, lte, merge, test, values, where} = require 'ramda' #auto_require:ramda
 {change, $assoc} = require 'ramda-extras'
 {toRamda} = require 'popsiql'
 
@@ -13,7 +13,7 @@ waitFor = (ms, done, f) ->
 		done()
 	, ms
 
-Oublie = require './oublie'
+Oublie = require './Oublie'
 utils = require './utils'
 
 o1 = {id: 1, a: 'a1'}
@@ -50,6 +50,9 @@ class App
 					o:
 						1: Date.now() + 20
 						2: Date.now() + 20
+				diff:
+					o:
+						2: {id: 2, a: 'a2'}
 					# 	4: Date.now()
 
 
@@ -57,6 +60,9 @@ class App
 		
 	sub: (key, query, strategy, expiry) ->
 		@cache.sub key, query, strategy, expiry
+
+	do: (query, strategy) ->
+		@cache.do query, strategy
 
 	pub: (key, delta) =>
 		@log.push {pub: {"#{key}": clone(delta)}} # todo: fix this properly
@@ -87,6 +93,16 @@ describe 'Oublie', ->
 						{remote: {key: 'o', query: {one: 'o', where: {a: 'qwe'}}}}
 						{pub: {o: {val: {$assoc: null}, sync: 'rd'}}}
 					], app.log
+
+			it 'key is nil', ->
+				app = new App()
+				throws /key must be a string for subscription/, ->
+					app.sub {one: 'o', id: 2}
+
+			it 'query is nil', ->
+				app = new App()
+				throws /query must be an object for subscription/, ->
+					app.sub 'o'
 
 			# hard to test since toRamda returns null instead of [] / {}
 			# it 'remote returns empty ([] or {})', (done) ->
@@ -196,3 +212,98 @@ describe 'Oublie', ->
 				], app.log
 				{diff} = app.getData()
 				deepEq {id: 2, a: 'a2'}, diff.o[2]
+
+		describe 'modify', ->
+			it 'throws if subscription not there', ->
+				app = new App()
+				throws /no 'edit' or 'new' subscription with key '\$o'/, ->
+					app.do {modify: '$o', delta: {a: 'a2$'}}
+
+			it 'throws if subscription has no id', ->
+				app = new App()
+				app.sub '$o', {many: 'o'}, 'LO'
+				throws /id in query at '\$o' is nil/, ->
+					app.do {modify: '$o', delta: {a: 'a2$'}}
+
+			it 'throws if subscription is not edit or new', ->
+				app = new App()
+				app.sub '$o', {one: 'o', id: 2}, 'LO'
+				throws /does not seem to be a edit or new query/, ->
+					app.do {modify: '$o', delta: {a: 'a2$'}}
+
+			it 'simple case', ->
+				app = new App()
+				app.sub '$o', {edit: 'o', id: 2}
+				app.do {modify: '$o', delta: {a: 'a2$'}}
+				deepEq [
+					{pub: {$o: {val: {$assoc: {id: 2, a: 'a2'}}, sync: undefined}}}
+					{pub: {$o: {val: {a: 'a2$'}}}}
+				], app.log
+				{diff} = app.getData()
+				deepEq {id: 2, a: 'a2$'}, diff.o[2]
+
+		describe 'commit', ->
+			it 'throws if subscription not there', ->
+				app = new App()
+				throws /no 'edit' or 'new' subscription with key '\$o'/, ->
+					app.do {commit: '$o'}
+
+			it 'throws if subscription has no id', ->
+				app = new App()
+				app.sub '$o', {many: 'o'}, 'LO'
+				throws /id in query at '\$o' is nil/, ->
+					app.do {commit: '$o'}
+
+			it 'throws if subscription is not edit or new', ->
+				app = new App()
+				app.sub '$o', {one: 'o', id: 2}, 'LO'
+				throws /does not seem to be a edit or new query/, ->
+					app.do {commit: '$o'}
+
+			it 'throws if no strategy', ->
+				app = new App()
+				app.sub '$o', {edit: 'o', id: 2}, 'LO'
+				throws /commit query missing strategy/, ->
+					app.do {commit: '$o'}
+
+			# it.only 'medium case LO', ->
+			# 	app = new App()
+			# 	app.sub 'a', {many: 'o'}, 'LO'
+			# 	app.sub 'b', {many: 'o', id: [1, 2]}, 'LO'
+			# 	app.sub 'c', {one: 'o', where: {a: 'a2'}}, 'LO'
+			# 	app.sub 'd', {many: 'o'}, 'LO'
+
+			# 	app.sub '$o', {edit: 'o', id: 2}
+			# 	app.do {modify: '$o', delta: {a: 'a2$'}}
+
+			# 	app.do {commit: '$o'}, 'LO'
+			# 	console.log app.log
+			# 	deepEq [
+			# 		{pub: {a: {val: {$merge: {2: {id: 2, a: 'a2$'}}}}}}
+			# 	], drop(6, app.log)
+			# 	{objects} = app.getData()
+			# 	deepEq {id: 2, a: 'a2$'}, objects.o[2]
+
+			# it 'throws if subscription has no id', ->
+			# 	app = new App()
+			# 	app.sub '$o', {many: 'o'}, 'LO'
+			# 	throws /id in query at '\$o' is nil/, ->
+			# 		app.do {modify: '$o', delta: {a: 'a2$'}}
+
+			# it 'throws if subscription is not edit or new', ->
+			# 	app = new App()
+			# 	app.sub '$o', {one: 'o', id: 2}, 'LO'
+			# 	throws /does not seem to be a edit or new query/, ->
+			# 		app.do {modify: '$o', delta: {a: 'a2$'}}
+
+			# it 'sim', ->
+			# 	app = new App()
+			# 	app.sub '$o', {edit: 'o', id: 2}
+			# 	app.do {modify: '$o', delta: {a: 'a2$'}}
+			# 	throws /no 'edit' or 'new' subscription with key '\$o'/, ->
+			# 		app.do {modify: '$o', delta: {a: 'a2$'}}
+
+
+
+
+

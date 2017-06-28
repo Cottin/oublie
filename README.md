@@ -33,4 +33,23 @@ Find out more in the docs below.
 
 # Docs
 
-Comming soon...
+## Remote
+For queries where your remote returns data, it always needs to do so as an object (map) where returned object or objects are nested under 
+
+# Scratchpad...
+{edit: 'Customer', id: 1}
+{new: 'Customer', data: {name: 'Vandelay Inc.', employees: 5}}
+{merge: 'Customer', id: 1, data: {name: 'Vandelay Inc.'}}
+{commit: 'Customer', id: '__1'}
+{delete: 'Customer', id: 1}
+
+{create: 'Customer', data: {name: 'Vandelay Inc.', employees: 10}}
+{update: 'Customer', id: 1, data: {name: 'Vandelay Inc.', employees: 5}}
+
+## Vill stödja
+{many: 'Restaurant', sort: 'name', max: 5}
+och sen byta till
+{many: 'Restaurant', sort: 'stars', max: 5}
+
+
+

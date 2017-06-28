@@ -12,6 +12,7 @@ colorToColor = (s, selected) ->
 		when 'yellow' then '#FFECB6'
 		when 'orange' then '#FCDED0'
 		when 'purple' then '#F4DBFF'
+		when 'darkpurple' then '#D0D8FD'
 
 Square = React.createClass
 	render: ->

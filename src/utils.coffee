@@ -1,8 +1,10 @@
-{all, any, assoc, call, difference, dissoc, has, isEmpty, isNil, keys, map, match, max, merge, none, omit, remove, test, type, where, whereEq} = R = require 'ramda' #auto_require:ramda
-{toRamda} = require 'popsiql'
+{all, any, assoc, call, difference, dissoc, has, isEmpty, isNil, keys, map, match, max, merge, none, omit, remove, test, type, update, where, whereEq} = R = require 'ramda' #auto_require:ramda
+popsiql = require 'popsiql'
 {cc, minIn} = require 'ramda-extras'
 
-_getEntity = (query) -> query.one || query.many || query.all
+_getEntity = (query) ->
+	{all, edit} = query
+	return all || edit || popsiql.getEntity(query)
 
 # toReadQuery = (query) ->
 # 	q_ = omit ['one', 'many', 'all', 'id'], query
@@ -22,7 +24,7 @@ _read = (cache, query) ->
 	# and cache figures out how to optimize the query by adding start. For later..
 	if has 'start', query then query = dissoc 'start', query 
 
-	return toRamda(query)(cache.objects)
+	return popsiql.toRamda(query)(cache.objects)
 
 _isCached = (cache, query) ->
 	if query.id
@@ -85,5 +87,37 @@ query = (cache, query, strategy, expiry) ->
 	edit, new, newedit, merge, commit, revert, remove)'
 
 
+_doCommit = (cache, query, strategy) ->
+	sub = cache.subs[query.commit]
+	if isNil sub
+		console.log 'error with query:', query
+		throw new Error "cannot commit, no subscription called #{query.commit}"
+
+	if ! ( has('edit', sub.query) || has('new', sub.query) )
+		console.log 'error with query:', query
+		throw new Error "cannot commit, subscription #{query.commit} is not edit or new"
+
+	entity = _getEntity sub.query
+	{id} = sub.query
+
+	l = {"#{entity}": {$merge: cache.diff[entity][id]}}
+	r = {update: entity, id, data: cache.diff[entity][id]}
+
+	return [l, r]
+
+	# if strategy == 'LO' then return [l, null]
+	# else if strategy == 'PE' then return [null, r]
+	# else if strategy == 'OP' then return [l, r]
+
+
+
+exec = (cache, query, strategy) ->
+	if has 'commit', query then return _doCommit cache, query, strategy
+
+	throw new Error 'Invalid cache query, missing valid operation (one, many, all, 
+	edit, new, newedit, merge, commit, revert, remove)'
+
+
+
 #auto_export:none_
-module.exports = {query}
+module.exports = {query, exec}
