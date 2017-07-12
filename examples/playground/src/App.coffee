@@ -1,13 +1,13 @@
 React = require 'react'
 {NICE, SUPER_NICE} = require './colors'
-{div, a, br, textarea, pre, input} = React.DOM
+{div, a, br, textarea, pre, input, ul, li} = React.DOM
 Counter = React.createFactory require('./Counter')
 Square = React.createFactory require('./Square')
-{F, __, always, clone, fromPairs, gt, has, lt, lte, map, match, max, merge, none, replace, sort, test, type, values, where} = require 'ramda' #auto_require:ramda
+{F, __, always, clone, empty, fromPairs, gt, has, isNil, keys, lt, lte, map, match, max, merge, none, replace, set, sort, test, type, update, where} = require 'ramda' #auto_require:ramda
 {cc, change} = require 'ramda-extras'
 data = require './data'
 Oublie = require 'oublie'
-{toRamda} = require 'popsiql'
+popsiql = require 'popsiql'
 
 uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace /[xy]/g, (c) ->
   r = Math.random() * 16 | 0
@@ -31,18 +31,36 @@ App = React.createClass
 		document.body.style.backgroundColor = "#F7F7F7"
 		@cache = new Oublie
 			pub: (key, delta) =>
-				console.log 'pub', {key, delta}
+				# console.log 'pub', {key, delta}
 				newResult = change clone(delta), @state[key]
-				console.log key, {newResult}
+				# console.log key, {newResult}
 				@setState {"#{key}": newResult}
 			remote: (key, query) =>
-				console.log 'remote', {key, query}
+				# console.log 'remote', {key, query}
 				return new Promise (res) =>
 					respond = =>
-						data = toRamda(query)(@state.data)
-						if type(data) == 'Array'
-							data = cc fromPairs, map((o)-> [o.id, o]), data
-						res data
+						data = popsiql.toRamda(query)(@state.data)
+						op = popsiql.getOp query
+						entity = popsiql.getEntity query
+						if op == 'one' || op == 'many'
+							if type(data) == 'Array'
+								data = cc fromPairs, map((o)-> [o.id, o]), data
+							res data
+						else if op == 'update'
+							updatedObj = data[entity][query.id]
+							@setState {data}
+							res updatedObj
+						else if op == 'create'
+							if isNil query.id
+								nextId = popsiql.nextId keys(@state.data[entity])
+								createdObj = data[entity][nextId]
+								@setState {data}
+								res createdObj
+							else
+								createdObj = data[entity][query.id]
+								@setState {data}
+								res createdObj
+
 					setTimeout respond, @state.delay * 1000
 		@cache._dev_dataChanged = (data) =>
 			@setState {cache: data}
@@ -52,14 +70,17 @@ App = React.createClass
 	do: -> @exec 'do'
 	exec: (type) ->
 		@setState {error: null}
-		query = '(' + @state.query + ')'
-		try
-			query_ = eval(query)
-		catch ex
-			console.log @state.query
-			console.log ex
-			@setState {error: 'Not valid javascript object...'}
-			return
+		if @state.query == ''
+			query_ = null
+		else
+			query = '(' + @state.query + ')'
+			try
+				query_ = eval(query)
+			catch ex
+				console.log @state.query
+				console.log ex
+				@setState {error: 'Not valid javascript object...'}
+				return
 
 		if type == 'do'
 			@cache.do query_, @state.strategy
@@ -94,6 +115,7 @@ App = React.createClass
 						div {style: {fontSize: 10, color: '#787878'}}, 'Basic reads'
 						Link {onClick: @setQuery("{many: 'Customer'}")}, 'Many customers'
 						Link {onClick: @setQuery("{one: 'Customer', id: 5}")}, 'One customer'
+						Link {onClick: @setQuery("{many: 'Person'}")}, 'Many persons'
 						Link {onClick: @setQuery("{many: 'Person', id: [2,3,4]}")}, 'Three persons using ids'
 						Link {onClick: @setQuery("{many: 'Person', id: [1,2,3,4]}")}, 'Four persons using ids'
 
@@ -113,12 +135,14 @@ App = React.createClass
 
 						br()
 						div {style: {fontSize: 10, color: '#787878'}}, 'New & Edit'
-							Link {onClick: @setQuery("{spawn: 'Person', values: {name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawn new person (always local)'
-							Link {onClick: @setQuery("{spawn: 'Person', values: {id: '#{uuid}', name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawn new person with id (always local)'
+							Link {onClick: @setQuery("{spawn: 'Person', data: {name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawn new person (always local)'
+							Link {onClick: @setQuery("{spawn: 'Person', data: {id: '#{uuid}', name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawn new person with id (always local)'
 							Link {onClick: @setQuery("{edit: 'Person', id: 2}")}, 'Edit person (id: 2)'
 
 					Square {color: 'red', title: 'Writes'},
-						Link {color: 'red', onClick: @setQuery("{modify: 'Person', id: '___0', delta: {position: 'Vice President'}}")}, 'Modify person under edit (assumes id=___0)'
+						Link {color: 'red', onClick: @setQuery("{modify: 'Person', id: '___0', delta: {name: 'Taylor Swift', salary: 50000000, age: 27}}")}, 'Modify person under edit (assumes id=___0)'
+						Link {color: 'red', onClick: @setQuery("{revert: 'Person', id: '___0'}")}, 'Revert person under edit (assumes id=___0)'
+						Link {color: 'red', onClick: @setQuery("{commit: 'Person', id: '___0'}")}, 'Commit person under edit (assumes id=___0)'
 						Link {color: 'red', onClick: @setQuery("{modify: 'Person', id: 2, delta: {position: 'Assistant to the traveling secretary'}}")}, 'Modify person under edit (assumes id=2)'
 						Link {color: 'red', onClick: @setQuery("{revert: 'Person', id: 2}")}, 'Revert person under edit (assumes id=2)'
 						Link {color: 'red', onClick: @setQuery("{commit: 'Person', id: 2}")}, 'Commit person under edit (assumes id=2)'
@@ -126,8 +150,9 @@ App = React.createClass
 						Link {color: 'green', onClick: @setStrategy('LO')}, 'Local'
 						Link {color: 'green', onClick: @setStrategy('PE', 2)}, 'Pessimistic 2s'
 						Link {color: 'green', onClick: @setStrategy('OP', 5)}, 'Optimistic 5s'
-						Link {color: 'green', onClick: @setStrategy('VO', 0)}, 'Very Optimistic 0s'
+						Link {color: 'green', onClick: @setStrategy('VO', 1)}, 'Very Optimistic 1s'
 						Link {color: 'green', onClick: @setStrategy('VO', 20)}, 'Very Optimistic 20s'
+
 				Row {},
 					Square {color: 'lightblue', w: '60vw'},
 						Textarea
@@ -153,6 +178,11 @@ App = React.createClass
 					if @state.error
 						div {style: {fontFamily: 'Avenir-Light', color: 'red'}}, @state.error
 				br()
+				Row {},
+					div {style: {fontFamily: 'Avenir-Light', fontSize: 11, color: '#787878'}},
+						ul {},
+							li {}, 'If expiry is set to 0, the objects received from the server expires before the throttled commit will execute, so minimum expiry ~1s'
+							li {}, 'To unsubscribe, subscribe to an empty string'
 				br()
 				Row {},
 					Square {color: 'yellow', title: 'Sub 1'},

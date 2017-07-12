@@ -1,4 +1,4 @@
 Oublie = require './Oublie3'
-# Oublie.utils = require './utils' # no need to export this one
+Oublie.utils = require './utils3'
 
 module.exports = Oublie

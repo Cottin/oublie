@@ -27,7 +27,7 @@
     "object-hash": "^1.1.8",
     "popsiql": "^0.1.21",
     "ramda": "^0.22.1",
-    "ramda-extras": "^0.2.15"
+    "ramda-extras": "^0.2.16"
   },
   "devDependencies": {
     "babel-core": "^6.3.15",

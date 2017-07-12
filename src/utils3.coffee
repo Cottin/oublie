@@ -1,6 +1,8 @@
 {__, has, none} = require 'ramda' #auto_require:ramda
 popsiql = require 'popsiql'
 
+ERR = 'Oublie Error: '
+
 getEntity = (query) ->
 	{spawn, edit, modify, commit, revert, undo, refresh} = query
 	return spawn || edit || modify || commit || revert || undo || refresh ||
@@ -22,4 +24,4 @@ validateQuery = (query) ->
 		throw new Error ERR + 'no support for start (yet?)'
 
 #auto_export:none_
-module.exports = {getEntity, getOp, validateQuery}
+module.exports = {ERR, getEntity, getOp, validateQuery}

@@ -1,4 +1,4 @@
-{__, all, always, any, assoc, both, call, clone, contains, difference, either, filter, flip, fromPairs, has, head, isEmpty, isNil, keys, last, lt, map, merge, omit, once, pathEq, pickBy, reject, remove, split, test, type, update} = R = require 'ramda' #auto_require:ramda
+{__, all, always, any, assoc, both, call, contains, difference, either, filter, flip, fromPairs, has, isEmpty, isNil, keys, last, lt, map, merge, once, pathEq, pickBy, reject, remove, replace, split, test, type, union, uniq} = R = require 'ramda' #auto_require:ramda
 {cc, change, yreduce, ymerge, ymap, isThenable, changedPaths, diff} = require 'ramda-extras'
 popsiql = require 'popsiql'
 hash = require 'object-hash'
@@ -7,24 +7,6 @@ debounce = require 'lodash.debounce'
 {getEntity, getOp, validateQuery} = require './utils3.coffee'
 
 ERR = 'Oublie Error: '
-
-	# TOGO:
-	# - [x] change
-	# - publish what's need to be published (throttled or similar) = rewrite commitAndPublish
-	#		- [x] rename to removeExpired
-	#		- [x] removeExpired borde returnera en spec
-	#		- [x] kolla om changedPaths klarar $assoc
-	#		- [ ] kolla om changedPaths och diff kan göras smartare
-	#		- [ ] tänk på hur det funkar om något tas bor också (ej läggs till)
-	#		- [ ] gör den enklaste optimeringen, kör inte om bara ändrats lastResult, reads, etc.
-	# - [ ] skulle kunna ha en semi-optimistisk som OP men läser också alltid från server
-	#	- [x] rename @data to @state
-	# - [x] run reads in playground and make sure it works
-	# - [x] implement the other operations and test them in playground
-	# - [ ] make the restaurant reviewer in oublie examples
-
-	# Notes:
-	# - edits: med commit eller direkt.. har funderat på insights och tr, svårt att anvgöra, testa commit och se hur det blir
 
 class Oublie
 	constructor: ({pub, remote}) ->
@@ -35,7 +17,7 @@ class Oublie
 
 		# Great explanation of debounce vs. throttle:
 		# https://css-tricks.com/debouncing-throttling-explained-examples/
-		@commitAndPublish = debounce @__commitAndPublish, 10,
+		@commitAndPublish = debounce @__commitAndPublish, 50,
 			leading: false # don't publish directly, let changes "buffer up"
 			trailing: true # then when they're all buffered, publish everything at once
 			maxWait: 250 # if too many changes, don't let them buffer in all eternity
@@ -45,13 +27,7 @@ class Oublie
 	# Make a new subscription to data (or pass query = null to unsubscribe)
 	sub: (key, query, strategy, expiry) ->
 		if isNil query
-			if cc contains(key), keys, @state.subs
-				@change {subs: {"#{key}": undefined}}
-			else
-				for entity, edits of @state.edits
-					for id, edit of edits
-						if edit.key == key
-							@change {edits: {"#{entity}": {"#{id}": undefined}}}
+			@change {subs: {"#{key}": undefined}} # unsubsrcibe
 			return
 
 		validateQuery query
@@ -62,15 +38,6 @@ class Oublie
 			when 'edit' then @edit key, query
 			else throw new Error ERR + 'no recognized operation for sub'
 
-	do: (query, strategy, meta) ->
-		validateQuery query
-		switch getOp query
-			when 'modify' then @modify query, meta
-			when 'revert' then @revert query, meta
-			when 'commit' then @commit query, strategy, meta
-			else throw new Error ERR + 'no recognized operation for do'
-
-
 
 	##### INTERNAL OPERATIONS
 
@@ -79,142 +46,40 @@ class Oublie
 		# reset sub
 		@change {subs: {"#{key}": {$assoc: {query, strategy, expiry, ts: Date.now()}}}}
 
-	edit: (key, query) ->
-		entity = getEntity query
-		_original = @state.objects[entity]?[query.id]
-		if isNil _original
-			throw new Error ERR + "edit failed, no object in cache at
-			#{entity}/#{query.id}"
+		# remoteQuery = calcRemoteQuery @state, query, strategy
+		# console.log 'remoteQeury', remoteQuery
+		# if !isNil remoteQuery
+		# 	@change {subs: {"#{key}": {_: 'rw'}}}
 
-		original = omit ['_'], _original
+		# 	runRemote @config.remote, key, remoteQuery
+		# 		.then (val) =>
+		# 			@change {subs: {"#{key}": {_: 'rd'}}}
 
-		copy = clone original
-		editData = {key, copy, original, type: 'edit'}
-		@change {edits: {"#{entity}": {"#{copy.id}": editData}}}
+		# 			entity = getEntity query
+		# 			# console.log 'val', val
+		# 			val_ = map ymerge({_: 'rd'}), val  
+		# 			expires = Date.now() + expiry * 1000
+		# 			@change
+		# 				objects: {"#{entity}": {$merge: val_}}
+		# 				ids: {"#{entity}": {$merge: map(always(expires), val)}}
+		# 				reads: {"#{entity}": {"#{hash(query)}": {expires, query}}}
 
-	spawn: (key, query) ->
-		entity = getEntity query
-		copy = clone (query.data || {})
-		if isNil copy.id
-			copy.id = "___#{@spawnCount++}"
-		editData = {key, copy, original: copy, type: 'spawn'}
-		@change {edits: {"#{entity}": {"#{copy.id}": editData}}}
+		# 			@queeueRemoveStatus entity, key, keys(val)
 
-	modify: (query) ->
-		entity = getEntity query
-		edit = @state.edits[entity][query.id]
-		if isNil edit
-			console.error {query}
-			throw new Error ERR + "modify failed, no object under edit at
-			#{entity}/#{query.id}"
-
-		if isNil query.delta
-			console.error {query}
-			throw new Error ERR + 'modify failed, query is missing a delta'
-
-		@change {edits: {"#{entity}": {"#{query.id}": {copy: query.delta}}}}
-
-
-	revert: (query) ->
-		entity = getEntity query
-		edit = @state.edits[entity][query.id]
-		if isNil edit
-			console.error {query}
-			throw new Error ERR + "revert failed, no object under edit at
-			#{entity}/#{query.id}"
-
-		newCopy = clone edit.original
-		@change {edits: {"#{entity}": {"#{query.id}": {copy: newCopy}}}}
-
-	commit: (query, strategy, meta) ->
-		entity = getEntity query
-		edit = @state.edits[entity][query.id]
-		if isNil edit
-			console.error {query}
-			throw new Error ERR + "commit failed, no object under edit to commit at
-			#{entity}/#{query.id}"
-
-		if strategy == 'LO'
-			@change {objects: {"#{entity}": {"#{query.id}": {$assoc: edit.copy}}}}
-
-		else if strategy == 'PE' || strategy == 'OP'
-			# @change {edits: {"#{entity}": {"#{query.id}": {_: sync}}}}
-
-			if edit.type == 'spawn'
-				@change edits: {"#{entity}": {"#{query.id}": {_: 'cw'}}}
-				if strategy == 'OP'
-					newObj = merge edit.copy, {_: 'cw'}
-					@change objects: {"#{entity}": {"#{query.id}": {$assoc: newObj}}}
-							
-				usesTempId = test /^___/, edit.copy.id
-				data = if usesTempId then omit ['id'], edit.copy else edit.copy
-				remoteQuery = {create: entity, data}
-				p = runRemote(@config.remote, null, remoteQuery, meta)
-					.then (val) =>
-						if usesTempId
-							if isNil(val) || isNil(val.id)
-								throw new Error ERR + "spawned #{entity} uses tempId 
-								#{edit.copy.id} and therefore expects remote to return object 
-								with persistent id"
-
-							newObj = merge edit.copy, {id: val.id}
-							newOriginal = merge edit.copy, {id: val.id}
-							@change
-								edits: 
-									"#{entity}":
-										"#{edit.copy.id}": undefined
-										"#{val.id}": merge edit, {type: 'edit', _: 'cd',
-										copy: newObj, original: newOriginal}
-								objects:
-									"#{entity}":
-										"#{val.id}": {$assoc: merge(newObj, {_: 'cd'})}
-
-								if strategy == 'OP'
-									@change objects: {"#{entity}": {"#{edit.copy.id}": undefined}}
-
-								@queeueRemoveStatus entity, edit.key, [val.id], 'cd'
-
-						else
-							@change
-								edits: {"#{entity}": {"#{query.id}": {_: 'cd', type: 'edit'}}}
-
-							if strategy == 'PE'
-								newObj = merge edit.copy, {_: 'cd'}
-								@change objects: {"#{entity}": {"#{query.id}": {$assoc: newObj}}}
-							else if strategy == 'OP'
-								@change objects: {"#{entity}": {"#{query.id}": {_: 'cd'}}}
-
-							@queeueRemoveStatus entity, edit.key, [query.id], 'cd'
-				p.meta = 'remote-promise'
-				return p
-
-			else if edit.type == 'edit'
-				@change {edits: {"#{entity}": {"#{query.id}": {_: 'uw'}}}}
-
-				if strategy == 'OP'
-					newObj = merge edit.copy, {_: 'uw'}
-					@change objects: {"#{entity}": {"#{query.id}": {$assoc: newObj}}}
-
-				data = omit ['_'], edit.copy
-				remoteQuery = {update: entity, id: edit.copy.id, data}
-				p = runRemote(@config.remote, null, remoteQuery)
-					.then (val) =>
-						@change edits: {"#{entity}": {"#{query.id}": {_: 'ud'}}}
-
-						if strategy == 'PE'
-							newObj = merge edit.copy, {_: 'ud'}
-							@change objects: {"#{entity}": {"#{query.id}": {$assoc: newObj}}}
-						else if strategy == 'OP'
-							@change objects: {"#{entity}": {"#{query.id}": {_: 'ud'}}}
-
-						@queeueRemoveStatus entity, edit.key, [query.id], 'ud'
-				p.meta = 'remote-promise'
-				return p
-
-		else
-			throw new Error ERR + "commit doesen't support strategy #{strategy} (yet)"
-
-		return null
+	# TOGO:
+	# - [x] change
+	# - [ ] publish what's need to be published (throttled or similar) = rewrite commitAndPublish
+	#		- [x] rename to removeExpired
+	#		- [x] removeExpired borde returnera en spec
+	#		- [x] kolla om changedPaths klarar $assoc
+	#		- [ ] kolla om changedPaths och diff kan göras smartare
+	#		- [ ] tänk på hur det funkar om något tas bor också (ej läggs till)
+	#		- [ ] gör den enklaste optimeringen, kör inte om bara ändrats lastResult, reads, etc.
+	# - [ ] skulle kunna ha en semi-optimistisk som OP men läser också alltid från server
+	#	- [x] rename @data to @state
+	# - [ ] run reads in playground and make sure it works
+	# - [ ] implement the other operations and test them in playground
+	# - [ ] make the restaurant reviewer in oublie examples
 
 	##### INTERNAL INFRASTRUCTURE
 
@@ -224,7 +89,7 @@ class Oublie
 	# way :)
 	change: (delta) ->
 		@nextState = change delta, @nextState
-		# console.log 'change', delta, @nextState
+		console.log 'change', delta, @nextState
 		@commitAndPublish() # note that it's debounced
 
 		# if !quiet then @commitAndPublish() # note that it's debounced
@@ -235,6 +100,7 @@ class Oublie
 		# could happen since there are function-calls inside this function.
 		nextStateRef = @nextState
 
+		# spec = {}#removeExpired nextStateRef
 		spec = removeExpired nextStateRef
 		newState =
 			if !isNil spec then change spec, nextStateRef
@@ -249,23 +115,25 @@ class Oublie
 
 		delta = diff lastState, @state
 		pathsChanged = changedPaths delta
-		# console.log 'delta', delta
-		# console.log 'paths', pathsChanged
+		console.log 'delta', delta
+		console.log 'paths', pathsChanged
+
+
+		# unsubs = doto pathsChanged,
+		# 						filter(test(/^subs.\w+\.\w+$/)),
+		# 						filter (s) -> R.path(s, delta) == undefined
+
+		# unsubs = cc filter((s) -> R.path(s, delta) == undefined),
+		# 						filter(test(/^subs.\w+\.\w+$/)),
+		# 						pathsChanged
 
 		unsubs = cc filter(pathEq(__, undefined, delta)),
 								filter(test(/^subs.\w+$/)),
 								pathsChanged
+		console.log 'unsubs', unsubs
 
-		for p in unsubs
-			[_, key] = split '.', p
-			@config.pub key, undefined
-
-		unedits = cc filter(pathEq(__, undefined, delta)),
-								filter(test(/^edits.\w+.\w+$/)),
-								pathsChanged
-
-		for p in unedits
-			{key} = R.path split('.', p), lastState
+		for s in unsubs
+			[_, key] = split '.', s
 			@config.pub key, undefined
 
 		if isEmpty delta then return
@@ -273,25 +141,21 @@ class Oublie
 		for key, sub of @state.subs
 			@runSub @state, key, pathsChanged
 
-		for entity, edits of @state.edits
-			for id, edit of edits
-				@runEdit @state, entity, id, pathsChanged
+		# changedSubs = calcChangedSubs pathsChanged
+		# affectedSubs = calcAffectedSubs pathsChanged, @state
+		# affectedSubsNotChanged = difference affectedSubs, changedSubs
 
-	runEdit: (state, entity, id, paths) ->
-		edit = state.edits[entity][id]
-		testIt = (s) -> ! cc isEmpty, filter(test(new RegExp(s))), paths
-		isChanged = testIt "^edits\.#{entity}\.#{id}\.(?:key|copy|original)"
-		isStatusChanged = testIt "^edits\.#{entity}\.#{id}\._"
-		# console.log 'EDIT', {isChanged, isStatusChanged}
+		# if isEmpty(changedSubs) && isEmpty(affectedSubsNotChanged) then return
 
-		if !isChanged && !isStatusChanged then return
+		# for s in changedSubs
+		# 	[entity, key] = split '.', s
+		# 	@runSub @state, entity, key, true
 
-		if !isChanged # only a status change
-			@config.pub edit.key, {_: edit._}
-			return
-
-		else # isChanged (and maybe isStatusChanged)
-			@config.pub edit.key, {$assoc: merge(edit.copy, {_: edit._})}
+		# for s in affectedSubsNotChanged
+		# 	[entity, key] = split '.', s
+		# 	@runSub @state, entity, key, false
+		# 	# # if shouldRunAffectedSub s
+		# 	# 	@runSub s
 
 	runSub: (state, key, paths) ->
 		sub = state.subs[key]
@@ -300,7 +164,7 @@ class Oublie
 		isChanged = testIt "^subs\.#{key}\.(?:query|strategy|ts)"
 		isStatusChanged = testIt "^subs\.#{key}\._"
 		isAffected = testIt "^objects\.#{entity}"
-		# console.log {isChanged, isStatusChanged, isAffected}
+		console.log {isChanged, isStatusChanged, isAffected}
 
 		if !isChanged && !isStatusChanged && !isAffected then return
 
@@ -311,7 +175,7 @@ class Oublie
 
 		else # either isChanged or isAffected or both is true
 
-			if isChanged then @runRemoteRead state, sub, key
+			if isChanged then @runRemote state, sub, key
 
 			val = switch sub.strategy
 				when 'LO' then readQuery state, sub.query
@@ -324,7 +188,7 @@ class Oublie
 						else readQuery state, sub.query
 				when 'OP'
 					if isChanged
-						# console.log 'isChanged'
+						console.log 'isChanged'
 						if isCached(state, sub.query) == true
 							readQuery state, sub.query
 						else {}
@@ -340,10 +204,10 @@ class Oublie
 			subData = {lastResult: hashResult, ids, last_: sub._}
 			@change {subs: {"#{key}": subData}}
 
-	runRemoteRead: (state, sub, key) ->
+	runRemote: (state, sub, key) ->
 		{query, strategy, expiry} = sub
 		remoteQuery = calcRemoteQuery state, query, strategy
-		# console.log 'remoteQeury', remoteQuery
+		console.log 'remoteQeury', remoteQuery
 		if !isNil remoteQuery
 			@change {subs: {"#{key}": {_: 'rw'}}}
 
@@ -352,6 +216,7 @@ class Oublie
 					@change {subs: {"#{key}": {_: 'rd'}}}
 
 					entity = getEntity query
+					# console.log 'val', val
 					val_ = map ymerge({_: 'rd'}), val  
 					expires = Date.now() + expiry * 1000
 					@change
@@ -359,30 +224,55 @@ class Oublie
 						ids: {"#{entity}": {$merge: map(always(expires), val)}}
 						reads: {"#{entity}": {"#{hash(query)}": {expires, query}}}
 
-					@queeueRemoveStatus entity, key, keys(val), 'rd'
+					@queeueRemoveStatus entity, key, keys(val)
+
+
+
+	# # note: if isChanged == false => then it is affected
+	# runSub: (state, entity, key, isChanged) ->
+	# 	sub = state.subs[entity][key]
+	# 	if isNil sub then return
+
+	# 	if readOrReset sub.strategy, isChanged
+	# 		val = readQuery state, sub.query
+	# 	else
+	# 		val = {}
+
+	# 	ids = keys val
+	# 	result = {val, _: sub._}
+	# 	hashResult = hash result
+	# 	if hashResult != sub.lastResult
+	# 		@config.pub key, {$assoc: result}
+	# 		@change {subs: {"#{entity}": {"#{key}": {lastResult: hashResult, ids}}}}
+
+	# resetSub: (entity, key) ->
+	# 	sub = @data.subs[entity][key]
+	# 	if isNil sub then return
+
+	# 	result = {val: {}, _: sub._}
+	# 	hashResult = hash result
+	# 	if hashResult != sub.lastResult
+	# 		@config.pub key, {$assoc: result}
+	# 		@change {subs: {"#{entity}": {"#{key}": {lastResult: hashResult, ids: []}}}}
 
 	# Schedules a removing of done-status(es) for sub and/or entities.
 	# Note: if statuses has changes from 'done' (eg. new data loading), it will
 	# not remove the status
-	queeueRemoveStatus: (entity, key, ids, status) =>
+	queeueRemoveStatus: (entity, key, ids) =>
 		flip(setTimeout) 2000, =>
+			# console.log 'queeueRemoveStatus', entity, key, ids
 			idSpec = {}
-			if ids && !isEmpty ids
-				for _id, o of @state.objects[entity]
-					id = if type(head(ids)) == 'Number' then parseInt _id else _id
-					if contains(id, ids) && o._ == status
+			if ids
+				for id, o of @state.objects[entity]
+					if contains(id, ids) && o._ == 'rd'
 						idSpec[id] = {_: undefined}
 			if !isEmpty idSpec
 				@change {objects: {"#{entity}": idSpec}}
 
 			if key
-				if @state.subs[key]?._ == status
+				sub = @state.subs[key]
+				if sub._ == 'rd'
 					@change {subs: {"#{key}": {_: undefined}}}
-
-				for entity, edits of @state.edits
-					for id, edit of edits
-						if edit.key == key && edit._ == status
-							@change {edits: {"#{entity}": {"#{id}": {_: undefined}}}}
 
 
 
@@ -426,8 +316,8 @@ isCached = (state, query) ->
 		return state.reads[entity]?[hash(query)]?
 
 # Runs the remote, makes some simple validation and returns the promise
-runRemote = (remote, key, remoteQuery, meta) ->
-	res = remote key, remoteQuery, meta
+runRemote = (remote, key, remoteQuery) ->
+	res = remote key, remoteQuery
 	if !isThenable res
 		throw new Error ERR + 'remote function needs to return a promise'
 	return res.then (val) =>
@@ -456,6 +346,24 @@ readQuery = (data, query) ->
 		# "lifter" / "selector" layer in your application
 		cc fromPairs, map((o) -> [o.id, o]), res
 	else res
+
+# calcChangedSubs = (paths) ->
+# 	# change of lastResult and ids is not a real sub change
+# 	subs = cc reject(test(/(?:\.lastResult)|(?:\.ids)$/)),
+# 						filter(test(/^subs\./)), paths
+# 	# subs = cc reject(test(/(?:\.lastResult)$/)), filter(test(/^subs\./)), paths
+# 	return cc uniq, map(replace(/^subs\.(\w*\.\w*)\..*/, '$1')), subs
+
+# calcAffectedSubs = (paths, state) ->
+# 	objs = cc uniq, map(replace(/^objects\.(\w*)\..*/, '$1')),
+# 						filter(test(/^objects\./)), paths
+
+# 	affectedSubs = yreduce objs, [], (a, o) =>
+# 		if ! has o, state.subs then a
+# 		else cc union(a), map((s) -> o + '.' + s), keys, state.subs[o]
+
+# 	return affectedSubs
+
 
 # Returns a spec to retrun expired reads and ids from ids and objects
 # if they are not still in use by a sub.
