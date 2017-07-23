@@ -410,7 +410,6 @@ calcRemoteQuery = (state, query, strategy) ->
 # if id-query: true if all ids are in 'objects', else array of missing ids
 # if normal query: true if query is in 'reads', else false
 isCached = (state, query) ->
-	# debugger
 	entity = getEntity query
 	if has 'id', query
 		if type(query.id) == 'Array'
@@ -421,7 +420,7 @@ isCached = (state, query) ->
 			missing = difference query.id, existingKeys
 			return if isEmpty missing then true else missing
 		else
-			return has query.id, state.objects[entity]
+			return has query.id, (state.objects[entity] || {})
 	else
 		return state.reads[entity]?[hash(query)]?
 
