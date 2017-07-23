@@ -4,7 +4,7 @@ popsiql = require 'popsiql'
 hash = require 'object-hash'
 debounce = require 'lodash.debounce'
 
-{getEntity, getOp, validateQuery} = require './utils3.coffee'
+{getEntity, getOp, validateQuery} = require './utils3'
 
 ERR = 'Oublie Error: '
 
