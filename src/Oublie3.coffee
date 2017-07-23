@@ -357,7 +357,7 @@ class Oublie
 					@change
 						objects: {"#{entity}": {$merge: val_}}
 						ids: {"#{entity}": {$merge: map(always(expires), val)}}
-						reads: {"#{entity}": {"#{hash(query)}": {expires, query}}}
+						reads: {"#{entity}": {"'#{hash(query)}'": {expires, query}}}
 
 					@queeueRemoveStatus entity, key, keys(val), 'rd'
 
