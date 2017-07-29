@@ -316,7 +316,7 @@ class Oublie
 			val = switch sub.strategy
 				when 'LO' then readQuery state, sub.query
 				when 'PE'
-					if isChanged then {}
+					if isChanged then null
 					else if isAffected
 						# this is the case: if PE is reading and other sub affects the data of same entity
 						# PE will be forced to run locally.
@@ -327,7 +327,7 @@ class Oublie
 						# console.log 'isChanged'
 						if isCached(state, sub.query) == true
 							readQuery state, sub.query
-						else {}
+						else null
 					else if isAffected
 						if sub._ == 'rw' then sub.val 
 						else readQuery state, sub.query
