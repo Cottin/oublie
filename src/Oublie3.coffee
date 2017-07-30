@@ -324,7 +324,6 @@ class Oublie
 						else readQuery state, sub.query
 				when 'OP'
 					if isChanged
-						# console.log 'isChanged'
 						if isCached(state, sub.query) == true
 							readQuery state, sub.query
 						else null
@@ -334,7 +333,7 @@ class Oublie
 				when 'VO' then readQuery state, sub.query
 
 		ids = keys val
-		hashResult = hash val
+		hashResult = hash if isNil(val) then null else val # protect against undef
 		if hashResult != sub.lastResult || sub._ != sub.last_
 			@config.pub key, {$assoc: {val, _: sub._}}
 			subData = {lastResult: hashResult, ids, last_: sub._}
@@ -343,7 +342,6 @@ class Oublie
 	runRemoteRead: (state, sub, key) ->
 		{query, strategy, expiry} = sub
 		remoteQuery = calcRemoteQuery state, query, strategy
-		# console.log 'remoteQeury', remoteQuery
 		if !isNil remoteQuery
 			@change {subs: {"#{key}": {_: 'rw'}}}
 
