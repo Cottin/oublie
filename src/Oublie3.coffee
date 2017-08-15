@@ -60,6 +60,7 @@ class Oublie
 			when 'many' then @oneOrMany key, query, strategy, expiry
 			when 'spawn' then @spawn key, query
 			when 'edit' then @edit key, query
+			when 'spawnedit' then @spawnedit key, query
 			else throw new Error ERR + 'no recognized operation for sub'
 
 	do: (query, strategy, meta) ->
@@ -80,6 +81,14 @@ class Oublie
 		# reset sub
 		@change {subs: {"#{key}": {$assoc: {query, strategy, expiry, ts: Date.now()}}}}
 
+	spawn: (key, query) ->
+		entity = getEntity query
+		copy = clone (query.data || {})
+		if isNil copy.id
+			copy.id = "___#{@spawnCount++}"
+		editData = {key, copy, original: copy, type: 'spawn'}
+		@change {edits: {"#{entity}": {"#{copy.id}": editData}}}
+
 	edit: (key, query) ->
 		entity = getEntity query
 		_original = @state.objects[entity]?[query.id]
@@ -93,13 +102,13 @@ class Oublie
 		editData = {key, copy, original, type: 'edit'}
 		@change {edits: {"#{entity}": {"#{copy.id}": editData}}}
 
-	spawn: (key, query) ->
+	spawnedit: (key, query) ->
 		entity = getEntity query
-		copy = clone (query.data || {})
-		if isNil copy.id
-			copy.id = "___#{@spawnCount++}"
-		editData = {key, copy, original: copy, type: 'spawn'}
-		@change {edits: {"#{entity}": {"#{copy.id}": editData}}}
+		_original = @state.objects[entity]?[query.id]
+		if isNil _original
+			@spawn key, {spawn: entity, data: query.data}
+		else
+			@edit key, {edit: entity, id: query.id}
 
 	modify: (query) ->
 		entity = getEntity query

@@ -145,6 +145,7 @@ App = React.createClass
 							Link {onClick: @setQuery("{spawn: 'Person', data: {name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawn new person (always local)'
 							Link {onClick: @setQuery("{spawn: 'Person', data: {id: '#{uuid}', name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawn new person with id (always local)'
 							Link {onClick: @setQuery("{edit: 'Person', id: 2}")}, 'Edit person (id: 2)'
+							Link {onClick: @setQuery("{spawnedit: 'Person', id: 2, data: {id: 2, name: '', age: 0, position: null, job: null, salary: null}}")}, 'Spawnedit person with id=2 (always local)'
 
 					Square {color: 'red', title: 'Writes'},
 						Link {color: 'red', onClick: @setQuery("{modify: 'Person', id: '___0', delta: {name: 'Taylor Swift', salary: 50000000, age: 27}}")}, 'Modify person under edit (assumes id=___0)'

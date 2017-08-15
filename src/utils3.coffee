@@ -1,12 +1,12 @@
-{__, has, none} = require 'ramda' #auto_require:ramda
+{__, has, none, remove} = require 'ramda' #auto_require:ramda
 popsiql = require 'popsiql'
 
 ERR = 'Oublie Error: '
 
 getEntity = (query) ->
-	{spawn, edit, modify, commit, revert, undo, refresh} = query
+	{spawn, edit, modify, commit, revert, undo, refresh, remove, spawnedit} = query
 	return spawn || edit || modify || commit || revert || undo || refresh ||
-					popsiql.getEntity(query)
+					remove || spawnedit || popsiql.getEntity(query)
 
 getOp = (query) ->
 	hasIt = has __, query
@@ -17,6 +17,8 @@ getOp = (query) ->
 	else if hasIt 'revert' then 'revert'
 	else if hasIt 'undo' then 'undo'
 	else if hasIt 'refresh' then 'refresh'
+	else if hasIt 'remove' then 'remove'
+	else if hasIt 'spawnedit' then 'spawnedit'
 	else popsiql.getOp query
 
 validateQuery = (query) ->
