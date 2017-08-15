@@ -241,19 +241,21 @@ class Oublie
 				spawned items that also exist in objects unless it's a LOcal remove"
 
 			if edit
-				@change {edits: {"#{entity}": {"#{query.id}": {_: 'rw'}}}}
+				@change {edits: {"#{entity}": {"#{query.id}": {_: 'dw'}}}}
 
 			if strategy == 'OP'
-				@change {objects: {"#{entity}": {"#{query.id}": {_: 'rw'}}}}
+				@change {objects: {"#{entity}": {"#{query.id}": {_: 'dw'}}}}
 
 			remoteQuery = {remove: entity, id: query.id}
 			p = runRemote(@config.remote, null, remoteQuery, meta)
 				.then (val) =>
 					if edit
-						@change edits: {"#{entity}": {"#{query.id}": {_: 'rd'}}}
-					@change objects: {"#{entity}": {"#{query.id}": {_: 'rd'}}}
+						@change edits: {"#{entity}": {"#{query.id}": {_: 'dd'}}}
+					@change objects: {"#{entity}": {"#{query.id}": {_: 'dd'}}}
 
 					flip(setTimeout) 2000, =>
+						if edit
+							@change edits: {"#{entity}": {"#{query.id}": {_: undefined}}}
 						@change objects: {"#{entity}": {"#{query.id}": undefined}}
 
 			p.meta = 'remote-promise'
