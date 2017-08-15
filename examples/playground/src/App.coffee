@@ -3,7 +3,7 @@ React = require 'react'
 {div, a, br, textarea, pre, input, ul, li} = React.DOM
 Counter = React.createFactory require('./Counter')
 Square = React.createFactory require('./Square')
-{F, __, always, clone, empty, fromPairs, gt, has, isNil, keys, lt, lte, map, match, max, merge, none, replace, set, sort, test, type, update, where} = require 'ramda' #auto_require:ramda
+{F, __, always, clone, empty, fromPairs, gt, has, isNil, keys, lt, lte, map, match, max, merge, none, remove, replace, set, sort, test, type, update, where} = require 'ramda' #auto_require:ramda
 {cc, change} = require 'ramda-extras'
 data = require './data'
 Oublie = require 'oublie'
@@ -47,19 +47,26 @@ App = React.createClass
 								data = cc fromPairs, map((o)-> [o.id, o]), data
 							res data
 						else if op == 'update'
-							updatedObj = data[entity][query.id]
-							@setState {data}
+							[data_, _] = data
+							updatedObj = data_[entity][query.id]
+							@setState {data: data_}
 							res updatedObj
 						else if op == 'create'
 							if isNil query.id
-								nextId = popsiql.nextId keys(@state.data[entity])
-								createdObj = data[entity][nextId]
-								@setState {data}
+								# nextId = popsiql.nextId keys(@state.data[entity])
+								[data_, newId] = data
+								createdObj = data_[entity][newId]
+								@setState {data: data_}
 								res createdObj
 							else
-								createdObj = data[entity][query.id]
-								@setState {data}
+								[data_, _] = data
+								createdObj = data_[entity][query.id]
+								@setState {data: data_}
 								res createdObj
+						else if op == 'remove'
+							[data_, _] = data
+							@setState {data: data_}
+							res()
 
 					setTimeout respond, @state.delay * 1000
 		@cache._dev_dataChanged = (data) =>
@@ -143,9 +150,11 @@ App = React.createClass
 						Link {color: 'red', onClick: @setQuery("{modify: 'Person', id: '___0', delta: {name: 'Taylor Swift', salary: 50000000, age: 27}}")}, 'Modify person under edit (assumes id=___0)'
 						Link {color: 'red', onClick: @setQuery("{revert: 'Person', id: '___0'}")}, 'Revert person under edit (assumes id=___0)'
 						Link {color: 'red', onClick: @setQuery("{commit: 'Person', id: '___0'}")}, 'Commit person under edit (assumes id=___0)'
+						Link {color: 'red', onClick: @setQuery("{remove: 'Person', id: '___0'}")}, 'Remove person (assumes id=___0)'
 						Link {color: 'red', onClick: @setQuery("{modify: 'Person', id: 2, delta: {position: 'Assistant to the traveling secretary'}}")}, 'Modify person under edit (assumes id=2)'
 						Link {color: 'red', onClick: @setQuery("{revert: 'Person', id: 2}")}, 'Revert person under edit (assumes id=2)'
 						Link {color: 'red', onClick: @setQuery("{commit: 'Person', id: 2}")}, 'Commit person under edit (assumes id=2)'
+						Link {color: 'red', onClick: @setQuery("{remove: 'Person', id: 2}")}, 'Remove person (assumes id=2)'
 					Square {color: 'green', title: 'Chooooose a strategy for you query!'},
 						Link {color: 'green', onClick: @setStrategy('LO')}, 'Local'
 						Link {color: 'green', onClick: @setStrategy('PE', 2)}, 'Pessimistic 2s'

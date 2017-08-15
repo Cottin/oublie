@@ -68,6 +68,7 @@ class Oublie
 			when 'modify' then @modify query, meta
 			when 'revert' then @revert query, meta
 			when 'commit' then @commit query, strategy, meta
+			when 'remove' then @remove query, strategy, meta
 			else throw new Error ERR + 'no recognized operation for do'
 
 
@@ -197,7 +198,7 @@ class Oublie
 
 				data = omit ['_'], edit.copy
 				remoteQuery = {update: entity, id: edit.copy.id, data}
-				p = runRemote(@config.remote, null, remoteQuery)
+				p = runRemote(@config.remote, null, remoteQuery, meta)
 					.then (val) =>
 						@change edits: {"#{entity}": {"#{query.id}": {_: 'ud'}}}
 
@@ -215,6 +216,54 @@ class Oublie
 			throw new Error ERR + "commit doesen't support strategy #{strategy} (yet)"
 
 		return null
+
+	remove: (query, strategy, meta) ->
+		entity = getEntity query
+		local = @state.objects[entity]?[query.id]
+		edit = @state.edits[entity]?[query.id]
+
+		if isNil(local) && isNil(edit)
+			console.error {query}
+			throw new Error ERR + "remove failed, no local object and no object under
+			edit to remove at #{entity}/#{query.id}"
+
+		if isNil(local) && edit && edit.type == 'spawn'
+			# trying to remove a spawned item that's not in 'objects' is a no-op,
+			# probably user will unsubscribe from the spawn query soon after this
+			return null 
+
+		if strategy == 'LO'
+			@change {objects: {"#{entity}": {"#{query.id}": undefined}}}
+
+		else if strategy == 'PE' || strategy == 'OP'
+			if edit && edit.type == 'spawn' # removal of spawns handled by no-op abolve
+				throw new Error ERR + "for now, not supporting removal of
+				spawned items that also exist in objects unless it's a LOcal remove"
+
+			if edit
+				@change {edits: {"#{entity}": {"#{query.id}": {_: 'rw'}}}}
+
+			if strategy == 'OP'
+				@change {objects: {"#{entity}": {"#{query.id}": {_: 'rw'}}}}
+
+			remoteQuery = {remove: entity, id: query.id}
+			p = runRemote(@config.remote, null, remoteQuery, meta)
+				.then (val) =>
+					if edit
+						@change edits: {"#{entity}": {"#{query.id}": {_: 'rd'}}}
+					@change objects: {"#{entity}": {"#{query.id}": {_: 'rd'}}}
+
+					flip(setTimeout) 2000, =>
+						@change objects: {"#{entity}": {"#{query.id}": undefined}}
+
+			p.meta = 'remote-promise'
+			return p
+
+		else
+			throw new Error ERR + "remove doesen't support strategy #{strategy} (yet)"
+
+		return null
+
 
 	##### INTERNAL INFRASTRUCTURE
 

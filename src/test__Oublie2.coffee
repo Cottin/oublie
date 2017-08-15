@@ -4,7 +4,7 @@ assert = require 'assert'
 {toRamda} = require 'popsiql'
 
 eq = flip assert.strictEqual
-deepEq = flip assert.deepEqual
+deepEq = flip assert.deepStrictEqual
 throws = (re, f) -> assert.throws f, re
 
 waitFor = (ms, done, f) ->

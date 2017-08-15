@@ -7,7 +7,7 @@ mockData = require './mockData'
 mockState = require './mockState'
 
 eq = flip assert.equal
-deepEq = flip assert.deepEqual
+deepEq = flip assert.deepStrictEqual
 throws = (f) -> assert.throws f, Error
 
 
