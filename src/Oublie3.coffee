@@ -27,7 +27,7 @@ ERR = 'Oublie Error: '
 	# - edits: med commit eller direkt.. har funderat på insights och tr, svårt att anvgöra, testa commit och se hur det blir
 
 class Oublie
-	constructor: ({pub, remote}) ->
+	constructor: ({pub, remote, debounceTime = 10, maxWait = 250}) ->
 		@config = {pub, remote}
 		@state = {objects: {}, ids: {}, reads: {}, writes: {}, subs: {}, edits: {}}
 		@nextState = @state
@@ -35,10 +35,10 @@ class Oublie
 
 		# Great explanation of debounce vs. throttle:
 		# https://css-tricks.com/debouncing-throttling-explained-examples/
-		@commitAndPublish = debounce @__commitAndPublish, 10,
+		@commitAndPublish = debounce @__commitAndPublish, debounceTime,
 			leading: false # don't publish directly, let changes "buffer up"
 			trailing: true # then when they're all buffered, publish everything at once
-			maxWait: 250 # if too many changes, don't let them buffer in all eternity
+			maxWait: maxWait # if too many changes, don't let them buffer in all eternity
 
 
 	##### PUBLIC API
