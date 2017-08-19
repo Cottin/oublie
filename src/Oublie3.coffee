@@ -495,10 +495,10 @@ runRemote = (remote, key, remoteQuery, meta) ->
 			throw new Error ERR + 'remote should return an object, see docs/remote.'
 
 		if getOp(remoteQuery) == 'one'
-			if keys(val).length != 1
+			if keys(val).length > 1
 				console.error {remoteQuery, remoteResponse: val}
-				throw new Error ERR + 'one-query expects a map (object) with one key =
-				the objects ids, see docs/remote.'
+				throw new Error ERR + 'one-query expects a map (object) with only one
+				key (the objects ids) but got more, see docs/remote.'
 
 		return val
 

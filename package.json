@@ -1,6 +1,6 @@
 {
   "name": "oublie",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Frontend cache with declarative data queries",
   "main": "lib/index.js",
   "scripts": {
