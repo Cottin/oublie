@@ -3,7 +3,7 @@ React = require 'react'
 {div, a, br, textarea, pre, input, ul, li} = React.DOM
 Counter = React.createFactory require('./Counter')
 Square = React.createFactory require('./Square')
-{F, __, always, clone, empty, fromPairs, gt, has, isNil, keys, lt, lte, map, match, max, merge, none, remove, replace, set, sort, test, type, update, where} = require 'ramda' #auto_require:ramda
+{F, __, always, clone, empty, fromPairs, gt, has, init, isEmpty, isNil, keys, lt, lte, map, match, max, merge, none, remove, replace, set, sort, test, type, update, where} = require 'ramda' #auto_require:ramda
 {cc, change} = require 'ramda-extras'
 data = require './data'
 Oublie = require 'oublie'
@@ -42,7 +42,11 @@ App = React.createClass
 						data = popsiql.toRamda(query)(@state.data)
 						op = popsiql.getOp query
 						entity = popsiql.getEntity query
-						if op == 'one' || op == 'many'
+						if op == 'one'
+							if isNil(data) || isEmpty(data) then res data
+							else if isNil data.id then res data
+							else res {"#{data.id}": data}
+						else if op == 'many'
 							if type(data) == 'Array'
 								data = cc fromPairs, map((o)-> [o.id, o]), data
 							res data
@@ -195,12 +199,17 @@ App = React.createClass
 							li {}, 'To unsubscribe, subscribe to an empty string'
 				br()
 				Row {},
-					Square {color: 'yellow', title: 'Sub 1'},
-						Code {}, @state.sub1 && JSON.stringify(@state.sub1, null, 2)
-					Square {color: 'orange', title: 'Sub 2'},
-						Code {}, @state.sub2 && JSON.stringify(@state.sub2, null, 2)
-					Square {color: 'darkpurple', title: 'Cache'},
-						Code {}, @state.cache && JSON.stringify(@state.cache, null, 2)
+					Col {},
+						StatusRow {data: @state.sub1}
+						Square {color: 'yellow', title: 'Sub 1'},
+							Code {}, @state.sub1 && JSON.stringify(@state.sub1, null, 2)
+					Col {},
+						StatusRow {data: @state.sub2}
+						Square {color: 'orange', title: 'Sub 2'},
+							Code {}, @state.sub2 && JSON.stringify(@state.sub2, null, 2)
+					Col {},
+						Square {color: 'darkpurple', title: 'Cache'},
+							Code {}, @state.cache && JSON.stringify(@state.cache, null, 2)
 				br()
 				Row {},
 					Square {color: 'purple', title: 'Data on simulated server'},
@@ -294,6 +303,33 @@ Row = React.createFactory React.createClass
 			flexDirection: 'row'
 			justifyContent: 'space-between'
 			marginBottom: '1vw'
+		div {style}, @props.children
+
+Col = React.createFactory React.createClass
+	render: ->
+		style =
+			display: 'flex'
+			flexDirection: 'column'
+			flexGrow: 1
+			marginBottom: '1vw'
+		div {style}, @props.children
+
+{init, wait, done, empty, error} = Oublie.utils
+StatusRow = React.createFactory React.createClass
+	render: ->
+		div {style: {fontSize: 10, fontFamily: 'Verdana', display: 'flex', justifyContent: 'space-between', marginRight: '1vw'}},
+			StatusItem {active: init(@props.data)}, 'init'
+			StatusItem {active: wait(@props.data)}, 'wait'
+			StatusItem {active: done(@props.data)}, 'done'
+			StatusItem {active: empty(@props.data)}, 'empty'
+			StatusItem {active: error(@props.data)}, 'error'
+		
+StatusItem = React.createFactory React.createClass
+	render: ->
+		{active} = @props
+		if active then style = {textDecoration: 'underline', color: 'red', fontWeight: 'bold'}
+		else style = {}
+
 		div {style}, @props.children
 
 Link = React.createFactory React.createClass

@@ -53,7 +53,7 @@
     "webpack-hot-middleware": "^2.6.0"
   },
   "dependencies": {
-    "popsiql": "^0.1.44",
+    "popsiql": "^0.1.49",
     "ramda-extras": "^0.2.17",
     "react": "^0.14.3",
     "react-dom": "^0.14.3"
