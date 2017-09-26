@@ -55,7 +55,7 @@ och sen byta till
 ## Nya idéer:
 
 						init			wait			ok tom			ok data			fel					nollställd inför ny
-one: 				nil 			{}._=w		{}._=d			{..}._=d		{}._=err		{}._=w
+one: 				nil  			{}._=w		{}._=d			{..}._=d		{}._=err		{}._=w
 many: 			nil 			{}._=w		{}._=d			{..}._=d		{}._=err		{}._=w
 
 --- skip this --many sort:	undef			[]._=w		[]._=d---
