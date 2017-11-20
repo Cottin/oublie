@@ -1,4 +1,5 @@
-{__, empty, has, init, isEmpty, isNil, none, omit, remove, test} = require 'ramda' #auto_require:ramda
+{__, empty, has, init, isEmpty, isNil, none, omit, remove, test, values} = require 'ramda' #auto_require:ramda
+{cc} = require 'ramda-extras'
 popsiql = require 'popsiql'
 
 ERR = 'Oublie Error: '
@@ -35,8 +36,14 @@ done = (x) ->
 empty = (x) ->
 	if isNil x then return false
 	return isEmpty omit(['_'], x)
+blank = (x) ->
+	return init(x) || empty(x)
+
+vals = (x) -> cc values, omit(['_']), x
+
+objs = (x) -> omit ['_'], x
 
 error = (x) -> return false
 
 #auto_export:none_
-module.exports = {ERR, getEntity, getOp, validateQuery, init, wait, done, empty, error}
+module.exports = {ERR, getEntity, getOp, validateQuery, init, wait, done, empty, blank, vals, objs, error}
