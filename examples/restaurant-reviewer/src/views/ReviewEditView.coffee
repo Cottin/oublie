@@ -1,8 +1,8 @@
 {createElement: _, DOM: {div, input, br, select, option}} = React = require 'react' #auto_require:react
 PureRenderMixin = require 'react-addons-pure-render-mixin'
 {connect} = require 'phlox'
-{ymapObjIndexed, ymap} = require 'ramda-extras'
-{isNil, test, type} = require 'ramda' #auto_require:ramda
+{fmapObjIndexed} = require 'ramda-extras' #auto_require:ramda-extras
+{isNil, test} = require 'ramda' #auto_require:ramda
 cn = require 'classnames'
 
 # to move: react-coffee
@@ -13,7 +13,7 @@ createComp = (f, name) ->
 		render: -> f @props, @context
 
 createComps = (connect, o) ->
-	ymapObjIndexed o, (f, k) ->
+	fmapObjIndexed o, (f, k) ->
 		comp = createComp f, k
 		if test /_$/, k then connect comp, k
 		else comp
